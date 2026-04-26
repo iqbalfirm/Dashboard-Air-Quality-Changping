@@ -7,7 +7,6 @@ dashboard
 |__data_harian_Changping.csv
 |__dashboard.py
 |__requiredmen.txt
-|__url.txt
 ```
 ## 2. Buka lokasi folder
 ```
