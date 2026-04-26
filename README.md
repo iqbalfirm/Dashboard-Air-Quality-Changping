@@ -6,7 +6,7 @@ Dashboard interaktif kualitas udara di distrik Changping dari 2013 - 2017
 dashboard
 |__data_harian_Changping.csv
 |__dashboard.py
-|__requiredmen.txt
+|__requirements.txt
 ```
 ## 2. Buka lokasi folder
 ```
