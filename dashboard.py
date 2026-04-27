@@ -145,7 +145,7 @@ with tab2:
         fig_bln, axes_bln = plt.subplots(len(polutan_pilihan), 1, figsize=(15, 3 * len(polutan_pilihan)), sharex=True)
         axes_bln = axes_bln if len(polutan_pilihan) > 1 else [axes_bln]
 
-        df_pola_idx = df_pola.set_index('tanggal').resample('M').mean(numeric_only=True)
+        df_pola_idx = df_pola.set_index('tanggal').resample('ME').mean(numeric_only=True)
 
         for i, polutan in enumerate(polutan_pilihan):
             sns.lineplot(data=df_pola_idx, x=df_pola_idx.index, y=polutan, ax=axes_bln[i], color=warna_map.get(polutan, 'blue'))
