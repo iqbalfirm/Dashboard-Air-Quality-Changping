@@ -4,18 +4,31 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.dates as mdates
 
-# halaman utama
+# HEADER UTAMA
+st.title("Dashboard Kualitas Udara Changping")
+
+tab1, tab2 = st.tabs(["Ringkasan Harian", "Analisis Pola Waktu"])
+
+# KONFIGURASI HALAMAN
 st.set_page_config(page_title="Dashboard Kualitas Udara Changping", layout="wide")
+DATA_POLUSI = "data_polusi.csv"
 
-DATA_FILE = 'data_harian_Changping.csv'
-
+NAMA_BULAN = {
+    1: "Januari", 2: "Februari", 3: "Maret", 4: "April", 
+    5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus", 
+    9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+}
+# LOAD DATA
 @st.cache_data
 def load_data():
-    df = pd.read_csv(DATA_FILE)
-    df['tanggal'] = pd.to_datetime(df['tanggal'])
-    df['Tahun'] = df['tanggal'].dt.year
-    df['Bulan'] = df['tanggal'].dt.month_name()
-    df['Hari'] = df['tanggal'].dt.day
+    df = pd.read_csv(DATA_POLUSI)
+    if 'tanggal' in df.columns:
+        df['tanggal'] = pd.to_datetime(df['tanggal'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+        df = df.dropna(subset=['tanggal'])
+        df['year'] = df['tanggal'].dt.year
+        df['month'] = df['tanggal'].dt.month
+        df['day'] = df['tanggal'].dt.day
+        df['hour'] = df['tanggal'].dt.hour
     return df
 
 try:
@@ -24,84 +37,124 @@ except Exception as e:
     st.error(f"Gagal memuat data: {e}")
     st.stop()
 
-# sidebar
-st.sidebar.header("Filter Data")
-pilihan_tahun = st.sidebar.selectbox("Pilih Tahun", sorted(df_mentah['Tahun'].unique()))
-df_tahun = df_mentah[df_mentah['Tahun'] == pilihan_tahun]
+# SIDEBAR FILTER
+st.sidebar.header("Filter")
 
-pilihan_bulan = st.sidebar.selectbox("Pilih Bulan", df_tahun['Bulan'].unique())
-df_bulan = df_tahun[df_tahun['Bulan'] == pilihan_bulan]
+tahun = st.sidebar.selectbox("Pilih Tahun", sorted(df_mentah['year'].unique()))
+df_tahun = df_mentah[df_mentah['year'] == tahun]
 
-list_hari = sorted(df_bulan['Hari'].unique())
-rentang = st.sidebar.slider("Pilih Rentang Hari", min(list_hari), max(list_hari), (min(list_hari), max(list_hari)))
-df_filter = df_bulan[df_bulan['Hari'].between(rentang[0], rentang[1])]
+bulan_angka_list = sorted(df_tahun['month'].unique())
+bulan_nama_list = [NAMA_BULAN[m] for m in bulan_angka_list]
+bulan_pilihan = st.sidebar.selectbox("Pilih Bulan", bulan_nama_list)
 
-# header
-st.title("Dashboard Evaluasi Kualitas Udara Harian Changping")
-st.write(f"Periode: **{rentang[0]} - {rentang[1]} {pilihan_bulan} {pilihan_tahun}**")
+bulan_angka = [k for k, v in NAMA_BULAN.items() if v == bulan_pilihan][0]
+df_bulan = df_tahun[df_tahun['month'] == bulan_angka]
+
+hari_list = sorted(df_bulan['day'].unique())
+rentang = st.sidebar.slider("Rentang Hari", min(hari_list), max(hari_list), (min(hari_list), max(hari_list)))
+
+df_filter_tab1 = df_bulan[df_bulan['day'].between(rentang[0], rentang[1])]
+
+# Agregasi Harian
+df_harian = df_filter_tab1.groupby(df_filter_tab1['tanggal'].dt.date).mean(numeric_only=True).reset_index()
+df_harian.rename(columns={'tanggal': 'date'}, inplace=True)
+df_harian['date'] = pd.to_datetime(df_harian['date'])
 
 ambang_batas = {'PM2.5': 55, 'PM10': 75, 'SO2': 75, 'NO2': 65, 'O3': 100, 'CO': 4000}
-polutan_tersedia = [p for p in ambang_batas.keys() if p in df_filter.columns]
-rata_rata = df_filter[polutan_tersedia].mean()
+polutan_tersedia = [p for p in ambang_batas.keys() if p in df_mentah.columns]
+warna_map = {'PM2.5': '#0000FF', 'PM10': '#FFA500', 'SO2': '#008000', 'NO2': '#FF0000', 'CO': '#800080', 'O3': '#A52A2A'}
 
-# KPI Polutan
-st.subheader("Rata-rata Intensitas Polutan")
-cols = st.columns(len(polutan_tersedia))
 
-for i, polutan in enumerate(polutan_tersedia):
-    batas = ambang_batas[polutan]
-    nilai = rata_rata[polutan]
-    status, warna_delta = ("NORMAL", "normal") if nilai <= batas else ("TINGGI", "inverse")
+# TAB 1: DASHBOARD HARIAN
+with tab1:
+    st.markdown(f"### Periode: {rentang[0]}-{rentang[1]} {bulan_pilihan} {tahun}")
+    
+    cols = st.columns(len(polutan_tersedia))
+    rata2 = df_harian[polutan_tersedia].mean()
 
-    cols[i].metric(
-        label=f"{polutan} (µg/m³)", 
-        value=f"{nilai:.1f}", 
-        delta=status, 
-        delta_color=warna_delta
-    )
-    cols[i].caption(f"Batas Aman: **{batas}**")
+    for i, polutan in enumerate(polutan_tersedia):
+        nilai = rata2[polutan]
+        status, warna_delta = ("NORMAL", "normal") if nilai <= ambang_batas[polutan] else ("TINGGI", "inverse")
+        cols[i].metric(label=f"{polutan} (µg/m³)", value=f"{nilai:.1f}", delta=status, delta_color=warna_delta)
 
-st.divider()
+    st.divider()
+    
+    col_kiri, col_kanan = st.columns([1, 2])
+    with col_kiri:
+        st.subheader("Status Kualitas")
+        df_harian['Status'] = df_harian[polutan_tersedia].apply(lambda x: "Normal" if (x <= pd.Series(ambang_batas)).all() else "Tidak Sehat", axis=1)
+        st.success(f"**{(df_harian['Status'] == 'Normal').sum()} Hari** Normal")
+        if (df_harian['Status'] == "Tidak Sehat").any():
+            st.error(f"**{(df_harian['Status'] == 'Tidak Sehat').sum()} Hari** Tidak Sehat")
 
-col_kiri, col_kanan = st.columns([1, 2])
+    with col_kanan:
+        st.subheader("Tren Fluktuasi Harian")
+        option_harian = st.selectbox("Pilih Parameter:", polutan_tersedia, key="sb_harian")
+        
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(10, 4))
+        fig.patch.set_alpha(0); ax.patch.set_alpha(0)
+        sns.lineplot(data=df_harian, x='date', y=option_harian, marker='o', color="#0064e6", ax=ax)
+        ax.axhline(y=ambang_batas[option_harian], color='red', ls='--', alpha=0.7, label='Ambang Batas')
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
+        ax.set_ylabel(f"Konsentrasi {option_harian} (µg/m³)")
+        st.pyplot(fig, transparent=True)
+        plt.close(fig)
 
-#Status kualitas udara
-col_kiri.subheader("Status Kualitas Udara")
-if 'Status_Kualitas_Udara' in df_filter.columns:
-    tdk_sehat = (df_filter['Status_Kualitas_Udara'] == 'Tidak Sehat').sum()
-    col_kiri.success(f"**{len(df_filter) - tdk_sehat} Hari** Normal")
-    if tdk_sehat > 0:
-        col_kiri.error(f"**{tdk_sehat} Hari** Tidak Sehat")
+# TAB 2: ANALISIS POLA WAKTU
+with tab2:
+    st.subheader("Analisis Tren & Pola Waktu")
+    
+    all_time = st.checkbox("Aktifkan Mode All Time (Gunakan data 2013-2017)", value=True)
+    df_pola = df_mentah if all_time else df_filter_tab1
+    
+    st.info(f"Visualisasi menggunakan: **{'Seluruh Dataset (All Time)' if all_time else 'Data Terfilter Sidebar'}**")
+    polutan_pilihan = st.multiselect("Pilih Polutan:", polutan_tersedia, default=polutan_tersedia)
+    
+    if polutan_pilihan:
+        plt.style.use('default')
+        st.markdown("### Pola Harian Rata-rata Konsentrasi Polutan")
+        n_cols_jam = 3
+        n_rows_jam = (len(polutan_pilihan) + n_cols_jam - 1) // n_cols_jam
+        
+        fig_jam, axes_jam = plt.subplots(n_rows_jam, n_cols_jam, figsize=(18, 5 * n_rows_jam))
+        
+        axes_jam = axes_jam.flatten()
 
-#Visualisasi
-col_kanan.subheader("Tren Konsentrasi Polutan")
-option = col_kanan.selectbox("Pilih Polutan:", polutan_tersedia)
-batas_aman = ambang_batas[option]
+        for i, polutan in enumerate(polutan_pilihan):
+            pola_jam = df_pola.groupby('hour')[polutan].mean()
+            jam_puncak = pola_jam.idxmax()
+            
+            sns.lineplot(x=pola_jam.index, y=pola_jam.values, ax=axes_jam[i], marker='o', color=warna_map.get(polutan, 'blue'))
+            axes_jam[i].axvline(x=jam_puncak, color='gray', ls='--', alpha=0.8, label=f'Puncak: Jam {jam_puncak}')
+            axes_jam[i].set_title(f"Pola Rata-rata {polutan}", fontsize=12)
+            axes_jam[i].set_ylabel(f"Rata-rata {polutan}")
+            axes_jam[i].set_xlabel("Pukul")
+            axes_jam[i].set_xticks(range(0, 24))
+            axes_jam[i].grid(True, alpha=0.2)
+            axes_jam[i].legend()
 
-plt.style.use('dark_background')
-fig, ax = plt.subplots(figsize=(10, 4.5))
-fig.patch.set_alpha(0); ax.patch.set_alpha(0)
+        for j in range(i + 1, len(axes_jam)): fig_jam.delaxes(axes_jam[j])
+        plt.tight_layout()
+        st.pyplot(fig_jam)
 
-sns.lineplot(data=df_filter, x='tanggal', y=option, marker='o', color="#0064e6", lw=2.5, ax=ax)
-ax.fill_between(df_filter['tanggal'], df_filter[option], color="#0064e6", alpha=0.15)
+        st.divider()
 
-if batas_aman:
-    ax.axhline(y=batas_aman, color='#ff5252', ls='--', lw=2, label=f'Batas Aman ({batas_aman})')
-    ax.legend(loc='upper right', frameon=False)
+        st.markdown("### Tren Bulanan Konsentrasi Polutan")
+        
+        fig_bln, axes_bln = plt.subplots(len(polutan_pilihan), 1, figsize=(15, 3 * len(polutan_pilihan)), sharex=True)
+        axes_bln = axes_bln if len(polutan_pilihan) > 1 else [axes_bln]
 
-ax.set_xticks(df_filter['tanggal'])
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%d'))
-ax.set_ylabel(f"Konsentrasi ({option}) µg/m³")
-ax.set_xlabel("Tanggal (Hari)")
-sns.despine()
+        df_pola_idx = df_pola.set_index('tanggal').resample('M').mean(numeric_only=True)
 
-col_kanan.pyplot(fig, transparent=True)
-plt.close(fig)
-
-# Tabel
-with st.expander("Lihat Detail Data"):
-    df_tabel = df_filter.drop(columns=['Tahun', 'Bulan', 'Hari'])
-    warna_map = {'Normal': 'color: #2ecc71; font-weight: bold', 'Tidak Sehat': 'color: #ff5252; font-weight: bold'}
-    if 'Status_Kualitas_Udara' in df_tabel.columns:
-        df_tabel = df_tabel.style.map(lambda x: warna_map.get(x, ''), subset=['Status_Kualitas_Udara'])
-    st.dataframe(df_tabel, use_container_width=True, hide_index=True)
+        for i, polutan in enumerate(polutan_pilihan):
+            sns.lineplot(data=df_pola_idx, x=df_pola_idx.index, y=polutan, ax=axes_bln[i], color=warna_map.get(polutan, 'blue'))
+            axes_bln[i].set_title(f"Tren Bulanan {polutan} (2013-2017)" if all_time else f"Tren {polutan}", loc='left', fontsize=10)
+            axes_bln[i].set_ylabel("Konsentrasi")
+            axes_bln[i].grid(True, alpha=0.2)
+        
+        plt.xlabel("Tanggal")
+        plt.tight_layout()
+        st.pyplot(fig_bln)
+    else:
+        st.warning("Silakan pilih minimal satu polutan.")
