@@ -4,7 +4,7 @@ Dashboard interaktif kualitas udara di distrik Changping dari 2013 - 2017
 ## 1. Pastikan sudah mempunyai semua file yang dibutuhkan
 ``` Dokumen yang dibutuhkan
 dashboard
-|__data_harian_Changping.csv
+|__data_polusi.csv
 |__dashboard.py
 |__requirements.txt
 ```
