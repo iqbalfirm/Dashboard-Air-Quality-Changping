@@ -6,11 +6,11 @@ import matplotlib.dates as mdates
 
 st.set_page_config(page_title="Dashboard Kualitas Udara Changping", layout="wide")
 
-#Header
+# Header
 st.title("Dashboard Kualitas Udara Changping")
 tab1, tab2 = st.tabs(["Ringkasan Harian", "Analisis Pola Waktu"])
 
-#Konfigurasi
+# Konfigurasi
 DATA_POLUSI = "data_polusi.csv"
 
 NAMA_BULAN = {
@@ -20,7 +20,11 @@ NAMA_BULAN = {
 }
 
 ambang_batas = {'PM2.5': 55, 'PM10': 75, 'SO2': 75, 'NO2': 65, 'O3': 100, 'CO': 4000}
-warna_map = {'PM2.5': '#0000FF', 'PM10': '#FFA500', 'SO2': '#008000', 'NO2': '#FF0000', 'CO': '#800080', 'O3': '#A52A2A'}
+
+warna_map = {
+    'PM2.5': '#0000FF', 'PM10': '#FFA500', 'SO2': '#008000',
+    'NO2': '#FF0000', 'CO': '#800080', 'O3': '#A52A2A'
+}
 
 # Load Data
 @st.cache_data
@@ -30,6 +34,7 @@ def load_data():
     if 'tanggal' in df.columns:
         df['tanggal'] = pd.to_datetime(df['tanggal'], errors='coerce')
         df = df.dropna(subset=['tanggal'])
+
         df['year'] = df['tanggal'].dt.year
         df['month'] = df['tanggal'].dt.month
         df['day'] = df['tanggal'].dt.day
@@ -46,7 +51,9 @@ except Exception as e:
 # Sidebar
 st.sidebar.header("Filter")
 
-tahun = st.sidebar.selectbox("Pilih Tahun", sorted(df_mentah['year'].unique()))
+tahun_list = sorted(df_mentah['year'].unique())
+tahun = st.sidebar.selectbox("Pilih Tahun", tahun_list)
+
 df_tahun = df_mentah[df_mentah['year'] == tahun]
 
 bulan_angka_list = sorted(df_tahun['month'].unique())
@@ -67,7 +74,7 @@ rentang = st.sidebar.slider(
     min(hari_list), max(hari_list),
     (min(hari_list), max(hari_list))
 )
-
+# Data Utama
 df_filter = df_bulan[df_bulan['day'].between(rentang[0], rentang[1])]
 
 polutan_tersedia = [p for p in ambang_batas.keys() if p in df_filter.columns]
@@ -165,7 +172,6 @@ with tab2:
             for i, polutan in enumerate(polutan_pilihan):
                 pola_jam = df_pola.groupby('hour')[polutan].mean()
 
-                # ambil jam puncak
                 jam_puncak = pola_jam.idxmax()
 
                 sns.lineplot(
@@ -179,12 +185,16 @@ with tab2:
                     x=jam_puncak,
                     linestyle='--',
                     color='gray',
-                    alpha=0.8
+                    alpha=0.8,
+                    label=f'Puncak: Jam {jam_puncak}'
                 )
 
-                axes_jam[i].set_title(f"Pola Jam {polutan}")
+                axes_jam[i].set_title(f"Pola Rata-rata {polutan}")
+                axes_jam[i].set_xlabel("Pukul")
+                axes_jam[i].set_ylabel(f"Rata-rata {polutan}")
                 axes_jam[i].set_xticks(range(0, 24))
                 axes_jam[i].grid(True, alpha=0.2)
+                axes_jam[i].legend()
 
             for j in range(i + 1, len(axes_jam)):
                 fig_jam.delaxes(axes_jam[j])
@@ -216,7 +226,7 @@ with tab2:
                         color=warna_map.get(polutan, 'blue')
                     )
 
-                    axes_bln[i].set_title(f"Tren {polutan}", loc='left')
+                    axes_bln[i].set_title(f"Tren Bulanan {polutan}", loc='left')
                     axes_bln[i].grid(True, alpha=0.2)
 
                 plt.tight_layout()
