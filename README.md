@@ -16,7 +16,7 @@ cd lokasi/folder/dashboard
 ```
 python -m venv venv
 ```
-**Mengaktifkan virtual environtmen pada windowns**
+**Mengaktifkan virtual environtmen pada windows**
 ```
 venv\Scripts\activate
 ```
