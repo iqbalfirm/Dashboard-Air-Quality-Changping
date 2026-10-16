@@ -4,9 +4,10 @@ Dashboard interaktif kualitas udara di distrik Changping dari 2013 - 2017
 ## 1. Pastikan sudah mempunyai semua file yang dibutuhkan
 ``` Dokumen yang dibutuhkan
 dashboard
-|__data_polusi.csv
-|__dashboard.py
-|__requirements.txt
+|__data_polusi.csv   # Dataset polusi Changping 2013-2017
+|__dashboard.py      # Kode utama dashboard streamlit
+|__requirements.txt  # Dependensi streamlit 
+|__link.txt          # Link deployment streamlit cloud
 ```
 ## 2. Buka lokasi folder
 ```
