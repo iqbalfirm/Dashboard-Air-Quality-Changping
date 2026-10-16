@@ -11,7 +11,8 @@ st.title("Dashboard Kualitas Udara Changping")
 tab1, tab2 = st.tabs(["Ringkasan Harian", "Analisis Pola Waktu"])
 
 # Konfigurasi
-DATA_POLUSI = "data_polusi.csv"
+BASE_DIR = Path(__file__).parent
+DATA_POLUSI = pd.read_csv(BASE_DIR / "data_polusi.csv")
 
 NAMA_BULAN = {
     1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
